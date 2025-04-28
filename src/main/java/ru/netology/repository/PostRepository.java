@@ -1,47 +1,40 @@
 package ru.netology.repository;
 
+import org.springframework.stereotype.Component;
 import ru.netology.model.Post;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+@Component
 public class PostRepository {
-  private final List<Post> posts = new CopyOnWriteArrayList<>();
+  private final ConcurrentHashMap<Long, Post> posts = new ConcurrentHashMap<>();
   private final AtomicLong idCounter = new AtomicLong(0);
 
-  public List<Post> all() {
-    return Collections.unmodifiableList(posts);
+  public Post save(Post post) {
+    if (post.getId() == 0) {
+      long newId = idCounter.incrementAndGet();
+      post.setId(newId);
+      posts.put(newId, post);
+    } else {
+      if (!posts.containsKey(post.getId())) {
+        throw new IllegalArgumentException("Post with id " + post.getId() + " not found");
+      }
+      posts.put(post.getId(), post);
+    }
+    return post;
   }
 
   public Optional<Post> getById(long id) {
-    return posts.stream().filter(p -> p.getId() == id).findFirst();
-  }
-
-  public Post save(Post post) {
-    Post savedPost = new Post(post.getId(), post.getContent());
-    if (savedPost.getId() == 0) {
-      // Создание нового поста
-      long newId = idCounter.incrementAndGet();
-      savedPost.setId(newId);
-      posts.add(savedPost);
-    } else {
-      // Обновление существующего поста
-      Optional<Post> existingPost = getById(savedPost.getId());
-      if (existingPost.isPresent()) {
-        posts.remove(existingPost.get());
-        posts.add(savedPost);
-      } else {
-        // Если поста нет, создаем новый с указанным ID
-        posts.add(savedPost);
-      }
-    }
-    return savedPost;
+    return Optional.ofNullable(posts.get(id));
   }
 
   public void removeById(long id) {
-    posts.removeIf(p -> p.getId() == id);
+    posts.remove(id);
+  }
+
+  public ConcurrentHashMap<Long, Post> getAll() {
+    return posts;
   }
 }
